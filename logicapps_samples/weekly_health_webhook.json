@@ -1,0 +1,50 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "recurrence": {
+        "type": "Recurrence",
+        "recurrence": {
+          "frequency": "Week",
+          "interval": 1
+        }
+      }
+    },
+    "actions": {
+      "ComposeReport": {
+        "type": "Compose",
+        "inputs": "DocSpace AI 주간 리포트: 중복 N건, 노후 M건, PII K건 (샘플)"
+      },
+      "POST_to_TeamsWebhook": {
+        "type": "Http",
+        "inputs": {
+          "method": "POST",
+          "uri": "@parameters('TeamsWebhookUrl')",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "@type": "MessageCard",
+            "@context": "http://schema.org/extensions",
+            "themeColor": "0076D7",
+            "summary": "DocSpace AI – Weekly Health",
+            "title": "DocSpace AI – Weekly Health",
+            "text": "@outputs('ComposeReport')"
+          }
+        },
+        "runAfter": {
+          "ComposeReport": [
+            "Succeeded"
+          ]
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "parameters": {
+    "TeamsWebhookUrl": {
+      "type": "String"
+    }
+  }
+}
