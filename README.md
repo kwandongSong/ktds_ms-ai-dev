@@ -3,19 +3,19 @@
 
 # 🧠 DocSpace AI — Azure 기반 문서 인텔리전스 허브
 
-> **KT DS WorksAI R&D Project**  
+> **MVP Project**  
 > 문서 색인, 유사 문서 탐색, 민감정보 탐지 및 자동 보고 기능을 갖춘 AI 문서 관리 플랫폼
 
 ---
 
 ## 📘 개요
 
-**DocSpace AI**는 조직 내 문서 자산을 자동으로 색인화하고,  
+**DocSpace AI**는 조직 내 문서 자산을 색인화하고,  
 유사도 분석 및 GPT 기반 감사 기능을 통해  
 문서 관리의 정확도·효율성을 높이는 **AI 문서 감사 솔루션**입니다.
 
-> 비정형 문서 → 텍스트 추출 → 임베딩 → 벡터 검색 → 감사/알림  
-> 까지 전 과정을 Azure 상에서 자동화
+> 정형/비정형 문서 → 텍스트 추출 → 임베딩 → 벡터 검색 → 감사/알림  
+> 까지 전 과정을 Azure 환경내 구현
 
 ---
 
@@ -29,8 +29,8 @@
 
 | 영역 | 리소스명 | 역할 | 비고 |
 |------|-----------|------|------|
-| **AI Search** | Azure Cognitive Search | 문서 인덱싱 + 벡터 검색 | `contentVector` 필드 사용 |
-| **AI Model** | Azure OpenAI | GPT-4o / text-embedding-3-small | 의미 비교·요약·임베딩 |
+| **AI Search** | Azure AI Search | 문서 인덱싱 + 벡터 검색 | `contentVector` 필드 사용 |
+| **AI Model** | Azure OpenAI | GPT-4o-mini/ text-embedding-3-small | 의미 비교·요약·임베딩 |
 | **App Service** | Streamlit Web App | 사용자 UI + 관리 콘솔 | Linux 환경 |
 | **Storage** | Blob Storage | 문서 저장, 종합 리포트 저장 | `docspace`, `docspace-reports` |
 |  | Table Storage | 담당자 / 로그 관리 | `DocspaceOwners`, `DocspaceActivity` |
@@ -43,9 +43,9 @@
 
 | 기능 | 기술 구성 | 설명 |
 |------|-------------|------|
-| **문서 색인 및 검색** | Cognitive Search + OpenAI Embeddings | 문서 내용 임베딩 후 인덱싱 → 벡터 기반 검색 |
+| **문서 색인 및 검색** | AI Search + OpenAI Embeddings | 문서 내용 임베딩 후 인덱싱 → 벡터 기반 검색 |
 | **유사 문서 감지** | Vector Search (HNSW) | Top-k 유사 문서 탐색으로 중복 검출 |
-| **내용 충돌 분석** | Azure OpenAI GPT-4 | 유사 문서 쌍 간 의미 비교 → 상충 여부 분석 |
+| **내용 충돌 분석** | Azure OpenAI GPT-4-mini | 유사 문서 쌍 간 의미 비교 → 상충 여부 분석 |
 | **문서 주기 관리** | Azure Functions + Table | 오래된 문서 자동 탐지 및 리포트 생성 |
 | **민감정보 탐지** | Regex + GPT | 개인정보·보안 키워드 탐지 및 경고 |
 | **담당자 관리** | Table Storage `DocspaceOwners` | 문서별 담당자명, 이메일, 연락처 저장 |
@@ -60,8 +60,8 @@
 |------|------|
 | Language | Python 3.12 |
 | Framework | Streamlit, Azure Functions |
-| AI/ML | Azure OpenAI (GPT-4o, Embeddings) |
-| Search | Azure Cognitive Search (Vector Search) |
+| AI/ML | Azure OpenAI (GPT-4o-mini, Embeddings) |
+| Search | Azure AI Search (Vector Search) |
 | Storage | Azure Blob / Table |
 | Notification | Microsoft Graph API, Teams Webhook |
 | Infra | Azure App Service (Linux, Consumption Plan) |
@@ -120,7 +120,7 @@ ktds_ms-ai-dev/
 → OpenAI Embedding 수행  
 → Search 인덱스 업서트 (`upsert_documents_with_embeddings()`)
 
-2️⃣ **유사 문서 탐색 → GPT-4 분석으로 병합 가이드 제시**  
+2️⃣ **유사 문서 탐색 → GPT-4o-mini 분석으로 병합 가이드 제시**  
 
 3️⃣ **문서 감사/보안탐지 → 정기 Function이 180일 이상 미수정 문서 자동 탐지**  
 
@@ -184,8 +184,3 @@ python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0
 > 문서 관리의 ‘검색 → 분석 → 통보’ 전 주기를 자동화한  
 > 차세대 문서 인텔리전스 허브입니다.”
 
-  {endpoint}/formrecognizer/documentModels/prebuilt-read:analyze?api-version=2024-11-30
-  ->
-  {endpoint}/documentintelligence/documentModels/prebuilt-read:analyze?\_overload=analyzeDocument&api-version=2024-11-30
-
-* Pricing tier 변경 : Free 요금제로 설정 -> Standard 요금제로 설정 후 key 재설정
