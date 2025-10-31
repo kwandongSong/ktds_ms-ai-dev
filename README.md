@@ -35,7 +35,7 @@
 | **App Service** | Streamlit Web App | 사용자 UI + 관리 콘솔 | Linux 환경 |
 | **Storage** | Blob Storage | 문서 저장, 종합 리포트 저장 | `docspace`, `docspace-reports` |
 |  | Table Storage | 담당자 / 로그 관리 | `DocspaceOwners`, `DocspaceActivity` |
-| **Functions** | Python Timer Trigger | 정기 보고서 생성 (5분마다) | Storage Key 인증 |
+| ~~**Functions**~~ | Python Timer Trigger | 정기 보고서 생성 (5분마다) | Storage Key 인증 |
 | **Logic Apps / Graph API** | Teams / Outlook 알림 | 담당자별 자동 발송 | Mail.Send 권한 필요 |
 
 ---
@@ -50,7 +50,7 @@
 | **문서 주기 관리** | Azure Functions + Table | 오래된 문서 자동 탐지 및 리포트 생성 |
 | **민감정보 탐지** | Regex + GPT | 개인정보·보안 키워드 탐지 및 경고 |
 | **담당자 관리** | Table Storage `DocspaceOwners` | 문서별 담당자명, 이메일, 연락처 저장 |
-| **자동 알림 전송** | Logic Apps / Graph API | 담당자에게 메일/Teams 알림 자동 발송 |
+| ~~**자동 알림 전송**~~ | Logic Apps / Graph API | 담당자에게 메일/Teams 알림 자동 발송 |
 | **종합 보고서 저장** | Blob Reports | 모든 경고/이상 문서 종합 JSON 저장 |
 
 ---
@@ -185,3 +185,12 @@ python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0
 > 문서 관리의 ‘검색 → 분석 → 통보’ 전 주기를 자동화한  
 > 차세대 문서 인텔리전스 허브입니다.”
 
+## 장기 비전
+
+>DocSpace AI는 단순한 검색/리뷰 도구를 넘어 “문서의 품질·보안·가치를 스스로 관리하는 AI 문서 운영 플랫폼”으로 확장
+>
+>RAG + Agent Orchestration → 지식 유지보수 자동화
+>
+>문서 메타데이터 + 조직 데이터 결합 → 부서별 문서 트렌드 분석
+>
+>생성형 AI + 정책엔진(Purview, Entra) → AI Governance 기반 DocOps
