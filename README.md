@@ -63,16 +63,16 @@ Works Space,Drive 시스템의 m365 전환 대비 m365 라인업 제품군들과
 → 텍스트 추출 (OCR/DocIntel), Embedding 수행, Search 인덱스 업서트 (`upsert_documents_with_embeddings()`)
 → 담당자 지정
 
+2. **문서 감사/보안탐지**
+→ PII(주민번호, Mail, 카드번호 등) 탐지
+
 3. **유사 문서 탐색** 
 → vector 유사도 검색 및 AI 분석으로 병합 가이드 제시  
 
-4. **문서 감사/보안탐지**
-→ PII(주민번호, Mail, 카드번호 등) 탐지  
-
-5. **알림 및 보고**
+4. **알림 및 보고**
 → 별도 종합보고서 작성 및 저장
 
-6. **대시보드 모니터링**
+5. **대시보드 모니터링**
 → 활동 로그, 특이사항 표기
 
 링크 : https://kwand-wepapp-1030.azurewebsites.net/
