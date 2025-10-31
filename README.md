@@ -182,16 +182,16 @@ python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0
 
 ---
 
-> “DocSpace AI는 Azure의 AI + Search + Storage + Automation을 통합해  
-> 문서 관리의 ‘검색 → 분석 → 통보’ 전 주기를 자동화한  
-> 차세대 문서 인텔리전스 허브입니다.”
+“DocSpace AI는 Azure의 AI + Search + Storage + Automation을 통합해  
+ 문서 관리의 ‘검색 → 분석 → 통보’ 전 주기를 자동화한  
+ 차세대 문서 인텔리전스 허브입니다.”
 
 ## 장기 비전
 
->DocSpace AI는 단순한 검색/리뷰 도구를 넘어 “문서의 품질·보안·가치를 스스로 관리하는 AI 문서 운영 플랫폼”으로 확장
+DocSpace AI는 단순한 검색/리뷰 도구를 넘어 “문서의 품질·보안·가치를 스스로 관리하는 AI 문서 운영 플랫폼”으로 확장
 >
->RAG + Agent Orchestration → 지식 유지보수 자동화
+RAG + Agent Orchestration → 지식 유지보수 자동화
 >
->문서 메타데이터 + 조직 데이터 결합 → 부서별 문서 트렌드 분석
+문서 메타데이터 + 조직 데이터 결합 → 부서별 문서 트렌드 분석
 >
->생성형 AI + 정책엔진(Purview, Entra) → AI Governance 기반 DocOps
+생성형 AI + 정책엔진(Purview, Entra) → AI Governance 기반 DocOps
