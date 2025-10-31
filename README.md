@@ -1,5 +1,5 @@
 링크 : https://kwand-wepapp-1030.azurewebsites.net/
-계정 : ktds7_14@modulabsbiz.onmicrosoft.com / modu123!
+계정 : ktds7_14@modulabsbiz.onmicrosoft.com / 모두123!
 
 # 🧠 DocSpace AI — Azure 기반 문서 인텔리전스 허브
 
