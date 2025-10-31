@@ -191,6 +191,8 @@ python -m streamlit run app.py --server.port 8000 --server.address 0.0.0.0
  
 DocSpace AI는 단순한 검색/리뷰 도구를 넘어 “문서의 품질·보안·가치를 스스로 관리하는 AI 문서 운영 플랫폼”으로 확장
 >
+M365 (Ondrive, Teams, Outlook 등) 제품들과의 연동
+>
 RAG + Agent Orchestration → 지식 유지보수 자동화
 >
 문서 메타데이터 + 조직 데이터 결합 → 부서별 문서 트렌드 분석
