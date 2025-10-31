@@ -21,7 +21,8 @@
 
 ## 🏗️ 시스템 아키텍처
 
-![architecture](A_diagram_titled_"DocSpace_AI"_presents_an_overvie.png)
+<img width="1132" height="692" alt="image" src="https://github.com/user-attachments/assets/51e7a7bb-06e6-461d-96c2-b52b8a017b2e" />
+
 
 ---
 
