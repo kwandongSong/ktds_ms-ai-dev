@@ -32,6 +32,7 @@
 |------|-----------|------|------|
 | **AI Search** | Azure AI Search | 문서 인덱싱 + 벡터 검색 | `contentVector` 필드 사용 |
 | **AI Model** | Azure OpenAI | GPT-4o-mini/ text-embedding-3-small | 의미 비교·요약·임베딩 |
+| **OCR** | Azure Document intelligence| 비정형 문서 텍스트 추출, OCR처리 | 전처리 활용 |
 | **App Service** | Streamlit Web App | 사용자 UI + 관리 콘솔 | Linux 환경 |
 | **Storage** | Blob Storage | 문서 저장, 종합 리포트 저장 | `docspace`, `docspace-reports` |
 |  | Table Storage | 담당자 / 로그 관리 | `DocspaceOwners`, `DocspaceActivity` |
