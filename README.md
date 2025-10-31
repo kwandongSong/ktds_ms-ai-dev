@@ -1,10 +1,11 @@
 링크 : https://kwand-wepapp-1030.azurewebsites.net/
-계정 : ktds7_14@modulabsbiz.onmicrosoft.com / 모두123!
+계정 : ktds7_14@modulabsbiz.onmicrosoft.com
 
 # 🧠 DocSpace AI — Azure 기반 문서 인텔리전스 허브
 
 **MVP Project**  
 >
+Works Space,Drive 시스템의 m365 전환 대비 m365 라인업 제품군들과의 연동 및 AI 접목 고도화
 문서 색인, 유사 문서 탐색, 민감정보 탐지 및 자동 보고 기능을 갖춘 AI 문서 관리 플랫폼
 
 ---
