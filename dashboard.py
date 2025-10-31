@@ -2,6 +2,7 @@
 import datetime as dt
 from typing import Dict, List
 from config import CONFIG
+from search import _ep, _idx, _hdr
 
 # Search & Logs
 from search import get_index_doc_count, get_recent_documents, get_timeseries_counts
@@ -107,3 +108,35 @@ def get_timeseries(session_state, days: int = 12) -> List[Dict]:
         today = dt.date.today()
         start = today - dt.timedelta(days=days-1)
         return [{"date": (start + dt.timedelta(days=i)).isoformat(), "docs": 0} for i in range(days)]
+
+
+def find_stale_docs(days=90, top=50):
+    """
+    lastModified(ISO string) 기준으로 오래된 문서 상위 N개 리스팅 (문자열 비교 한계 있음)
+    운영에선 lastModified를 Edm.DateTimeOffset로 설계 권장.
+    """
+    import requests
+    ep, idx = _ep(), _idx()
+    url = f"{ep}/indexes('{idx}')/docs/search?api-version=2023-11-01"
+    body = {
+        "search": "*",
+        "select": "id,originalId,name,lastModified",
+        "top": top,
+        "queryType": "simple",
+        "orderby": "lastModified asc"  # 오래된 순
+    }
+    r = requests.post(url, headers=_hdr(), json=body, timeout=30)
+    r.raise_for_status()
+    return r.json().get("value", [])
+
+# UI 예시
+def render_stale_report():
+    st.markdown("### ⏳ 오래된 문서 리포트")
+    days = st.slider("오래된 기준(일)", 30, 365, 180)
+    if st.button("리포트 생성"):
+        items = find_stale_docs(days=days, top=100)
+        st.table([{
+            "name": it.get("name"),
+            "lastModified": it.get("lastModified"),
+            "originalId": it.get("originalId")
+        } for it in items])

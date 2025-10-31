@@ -1,4 +1,5 @@
 # storage_blob.py (보강)
+from typing import Optional
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from config import CONFIG
 import io
@@ -23,11 +24,24 @@ def list_blobs_detailed(prefix: str = None):
         })
     return out
 
-def upload_blob(blob_name: str, data: bytes, overwrite: bool = True, content_type: str = None):
-    _, cc = _svc()
-    bc = cc.get_blob_client(blob_name)
+def upload_blob(blob_name, data: bytes, overwrite: bool = True,
+                content_type: Optional[str] = None, container: Optional[str] = None) -> str:
+    account = CONFIG["AZURE_STORAGE_ACCOUNT"]
+    key     = CONFIG["AZURE_STORAGE_KEY"]
+    svc = BlobServiceClient(account_url=f"https://{account}.blob.core.windows.net", credential=key)
+
+    cont_name = container or CONFIG.get("REPORTS_CONTAINER") or "docspace"
+    container_client = svc.get_container_client(cont_name)
+    try:
+        container_client.create_container()
+    except Exception:
+        pass
+
+    blob_client = container_client.get_blob_client(blob_name)
     cs = ContentSettings(content_type=content_type) if content_type else None
-    bc.upload_blob(io.BytesIO(data), overwrite=overwrite, content_settings=cs)
+    blob_client.upload_blob(io.BytesIO(data), overwrite=overwrite,
+                            content_settings=cs)
+    return f"{cont_name}/{blob_name}"
 
 def download_blob(blob_name: str) -> bytes:
     _, cc = _svc()

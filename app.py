@@ -23,6 +23,19 @@ from search import (
 from compare import generate_merge_report
 from login_page import render_login_page, is_logged_in  
 from files_hub import render_files_hub  # ← 추가
+from ops_alerts import (
+    build_weekly_digest, build_security_alert, build_stale_docs_alert,
+    build_conflict_alert, send_alert, quick_activity_digest,
+    alert_to_owner_for_document, bulk_alert_stale_docs_to_owners
+)
+from owners_registry import ensure_owners_table
+# app.py – render_ops() 내 탭 추가/핸들러
+from reports import build_consolidated_markdown, save_consolidated_report_to_blob
+
+try:
+    ensure_owners_table()
+except Exception as e:
+    st.warning(f"DocspaceOwners 테이블 준비 실패: {e}")
 
 try:
     ensure_table()
@@ -46,7 +59,7 @@ st.markdown("""
 # 첫 진입이거나 세션 만료 시 → 로그인 페이지 렌더하고 종료
 # 로그인 페이지 렌더링 전에 상태 체크
 if not is_logged_in():
-    render_login_page(default_next="📁 파일 허브")
+    render_login_page(default_next="📁 DocSpace")
     st.stop()
 
 # ----------------------------
@@ -54,9 +67,9 @@ if not is_logged_in():
 # ----------------------------
 NAV_KEY = "__page"
 PAGES = [
-    "📁 파일 허브",
+    "📁 DocSpace",
     "📊 대시보드",
-    "🔐 Space",
+    # "🔐 Space",
     "🧾 문서 감사",
     "🗂️ 지식 정리/보안",
     "🔔 알림/운영",
@@ -70,8 +83,8 @@ def go(page_name: str):
     st.rerun()
 
 def current_page() -> str:
-    """현재 페이지 얻기 (기본은 파일 허브)"""
-    return st.session_state.get(NAV_KEY, "📁 파일 허브")
+    """현재 페이지 얻기 (기본은 DocSpace)"""
+    return st.session_state.get(NAV_KEY, "📁 DocSpace")
 
 # ─────────────────────────────────────────────────
 # (사이드바 렌더 전) 과거에 쓰던 _nav_to를 발견하면 NAV_KEY로 승격
@@ -421,7 +434,7 @@ def render_audit():
                         log_activity("default", "Blob", "INFO", f"재작성 문서 저장: {file_name}")
                     else:
                         # onedrive (폴더 경로 포함하고 싶다면 'DocSpace/refined/...' 형태를 권장)
-                        path = f"DocSpace/refined/{file_name}"
+                        path = f"docspace/refined/{file_name}"
                         upload_onedrive_file(path, bytes_out, conflict_behavior="replace", mime="text/markdown")
                         st.success(f"OneDrive에 저장됨: {path}")
                         log_activity("default", "OneDrive", "INFO", f"재작성 문서 저장: {path}")
@@ -444,193 +457,388 @@ def render_audit():
     #         st.download_button("리포트 저장 (Markdown)", cmp_report.encode("utf-8"), file_name="merge_report.md")
 
 def render_curation():
-    st.title("🗂️ 지식 정리/보안")
-    st.markdown("#### 1) 인덱스 생성")
-    if st.button("인덱스 생성/확인"):
-        try:
-            res = create_index_if_missing()
-            st.success(f"인덱스 상태: {res}")
-            try: log_activity("default", "Search", "INFO", f"인덱스 상태: {res}")
-            except Exception: pass
-        except Exception as e:
-            st.error(f"인덱스 생성 실패: {e}")
-            try: log_activity("default", "Search", "ERROR", f"인덱스 생성 실패: {e}")
-            except Exception: pass
+    
+    # st.title("🗂️ 지식 정리/보안")
+    # st.markdown("#### 1) 인덱스 생성")
+    # if st.button("인덱스 생성/확인"):
+    #     try:
+    #         res = create_index_if_missing()
+    #         st.success(f"인덱스 상태: {res}")
+    #         try: log_activity("default", "Search", "INFO", f"인덱스 상태: {res}")
+    #         except Exception: pass
+    #     except Exception as e:
+    #         st.error(f"인덱스 생성 실패: {e}")
+    #         try: log_activity("default", "Search", "ERROR", f"인덱스 생성 실패: {e}")
+    #         except Exception: pass
 
-    st.markdown("#### 2) 현재 문서를 인덱스에 업서트")
-    if st.button("현재 문서 업서트"):
-        doc = st.session_state.get("current_doc")
-        if not doc:
-            st.warning("먼저 저장소에서 문서를 불러오세요.")
-        else:
-            try:
-                payload = [{
-                    "id": make_key(doc["id"]),
-                    "name": doc["name"],
-                    "content": doc["text"],
-                    "lastModified": datetime.utcnow().isoformat(),
-                    "views": 0
-                }]
-                res = upsert_documents(payload)
-                st.success("업서트 완료")
-                st.json(res)
-                log_activity("default", "Search", "INFO", f"업서트 완료: {doc['name']}")
-            except Exception as e:
-                st.error(f"업서트 실패: {e}")
+    # st.markdown("#### 2) 현재 문서를 인덱스에 업서트")
+    # if st.button("현재 문서 업서트"):
+    #     doc = st.session_state.get("current_doc")
+    #     if not doc:
+    #         st.warning("먼저 저장소에서 문서를 불러오세요.")
+    #     else:
+    #         try:
+    #             payload = [{
+    #                 "id": make_key(doc["id"]),
+    #                 "name": doc["name"],
+    #                 "content": doc["text"],
+    #                 "lastModified": datetime.utcnow().isoformat(),
+    #                 "views": 0
+    #             }]
+    #             res = upsert_documents(payload)
+    #             st.success("업서트 완료")
+    #             st.json(res)
+    #             log_activity("default", "Search", "INFO", f"업서트 완료: {doc['name']}")
+    #         except Exception as e:
+    #             st.error(f"업서트 실패: {e}")
 
-    st.markdown("#### 3) 벡터 검색 (유사 문서 찾기)")
-    q = st.text_input("쿼리 텍스트", value=st.session_state.get("current_doc",{}).get("text","")[:500])
-    if st.button("벡터 검색 실행"):
-        try:
-            results = vector_search(q, k=5)
-            st.write(results)
-            try:
-                log_activity("default", "Search", "INFO", f"벡터 검색 · 질의 길이={len(q)} · 결과={len(results)}")
-            except Exception: pass
-        except Exception as e:
-            st.error(f"벡터 검색 실패: {e}")
-            try:
-                log_activity("default", "Search", "ERROR", f"벡터 검색 실패: {e}")
-            except Exception: pass
+    # st.markdown("#### 3) 벡터 검색 (유사 문서 찾기)")
+    # q = st.text_input("쿼리 텍스트", value=st.session_state.get("current_doc",{}).get("text","")[:500])
+    # if st.button("벡터 검색 실행"):
+    #     try:
+    #         results = vector_search(q, k=5)
+    #         st.write(results)
+    #         try:
+    #             log_activity("default", "Search", "INFO", f"벡터 검색 · 질의 길이={len(q)} · 결과={len(results)}")
+    #         except Exception: pass
+    #     except Exception as e:
+    #         st.error(f"벡터 검색 실패: {e}")
+    #         try:
+    #             log_activity("default", "Search", "ERROR", f"벡터 검색 실패: {e}")
+    #         except Exception: pass
 
     
-    st.markdown("---")
+    # st.markdown("---")
     st.header("🔎 유사 문서 탐색 & 병합 가이드")
 
     # 1) 기준 문서 선택: (A) 현재 문서 or (B) 인덱스 목록에서 선택
-    base_mode = st.radio("기준 문서 선택", ["현재 문서", "인덱스에서 선택"], horizontal=True)
+    # base_mode = st.radio("기준 문서 선택", ["현재 문서", "인덱스에서 선택"], horizontal=True)
 
-    base_doc = None
-    base_text = None
+    # base_doc = None
+    # base_text = None
 
-    if base_mode == "현재 문서":
-        base_doc = st.session_state.get("current_doc")
-        if not base_doc:
-            st.info("현재 문서가 없습니다. 저장소 탭에서 문서를 불러오거나, 아래 '인덱스에서 선택'을 이용하세요.")
-        else:
-            base_text = safe_text(base_doc.get("content"), "")
-            st.success(f"기준: {base_doc.get('name')} (세션)")
-    else:
-        # 최근 문서 목록에서 선택
-        try:
-            recents = get_recent_documents(top=30)
-        except Exception:
-            recents = []
-        if not recents:
-            st.warning("인덱스에서 최근 문서를 불러오지 못했습니다. 먼저 문서를 업서트 해보세요.")
-        else:
-            labels = [f"{d['name']}  ·  {d.get('lastModified','')}" for d in recents]
-            idx = st.selectbox("기준 문서를 선택하세요", options=list(range(len(recents))), format_func=lambda i: labels[i])
-            chosen = recents[idx]
-            base_doc = {"id": chosen["id"], "name": chosen["name"]}
-            # 인덱스에서 content를 함께 가져옴
-            detail = get_document_by_id(chosen["id"])
-            base_text = detail.get("content", "")
-            if base_text:
-                st.success(f"기준: {chosen['name']} (인덱스)")
-            else:
-                st.warning("선택 문서에 content 필드가 없거나 비어 있습니다.")
+    # if base_mode == "현재 문서":
+    #     base_doc = st.session_state.get("current_doc")
+    #     if not base_doc:
+    #         st.info("현재 문서가 없습니다. 저장소 탭에서 문서를 불러오거나, 아래 '인덱스에서 선택'을 이용하세요.")
+    #     else:
+    #         base_text = safe_text(base_doc.get("content"), "")
+    #         st.success(f"기준: {base_doc.get('name')} (세션)")
+    # else:
+    #     # 최근 문서 목록에서 선택
+    #     try:
+    #         recents = get_recent_documents(top=30)
+    #     except Exception:
+    #         recents = []
+    #     if not recents:
+    #         st.warning("인덱스에서 최근 문서를 불러오지 못했습니다. 먼저 문서를 업서트 해보세요.")
+    #     else:
+    #         labels = [f"{d['name']}  ·  {d.get('lastModified','')}" for d in recents]
+    #         idx = st.selectbox("기준 문서를 선택하세요", options=list(range(len(recents))), format_func=lambda i: labels[i])
+    #         chosen = recents[idx]
+    #         base_doc = {"id": chosen["id"], "name": chosen["name"]}
+    #         # 인덱스에서 content를 함께 가져옴
+    #         detail = get_document_by_id(chosen["id"])
+    #         base_text = detail.get("content", "")
+    #         if base_text:
+    #             st.success(f"기준: {chosen['name']} (인덱스)")
+    #         else:
+    #             st.warning("선택 문서에 content 필드가 없거나 비어 있습니다.")
 
-    # 2) 유사 문서 리스트 (상위 k개)
-    st.subheader("상위 유사 문서")
-    top_k = st.slider("개수", min_value=3, max_value=15, value=5, step=1)
-    similar = []
-    if base_text:
-        try:
-            with st.spinner("유사 문서 검색 중…"):
-                similar = vector_search_by_text(base_text, k=top_k)
-                log_activity("default", "Search", "INFO", f"유사 문서 후보 {len(similar)}건")
-        except Exception as e:
-            st.error(f"유사 문서 검색 실패: {e}")
+    # # 2) 유사 문서 리스트 (상위 k개)
+    # st.subheader("상위 유사 문서")
+    # top_k = st.slider("개수", min_value=3, max_value=15, value=5, step=1)
+    # similar = []
+    # if base_text:
+    #     try:
+    #         with st.spinner("유사 문서 검색 중…"):
+    #             similar = vector_search_by_text(base_text, k=top_k)
+    #             log_activity("default", "Search", "INFO", f"유사 문서 후보 {len(similar)}건")
+    #     except Exception as e:
+    #         st.error(f"유사 문서 검색 실패: {e}")
 
-    if similar:
-        import pandas as pd
-        df_sim = pd.DataFrame(similar)
-        st.dataframe(df_sim, use_container_width=True, height=240)
+    # if similar:
+    #     import pandas as pd
+    #     df_sim = pd.DataFrame(similar)
+    #     st.dataframe(df_sim, use_container_width=True, height=240)
 
-        # 3) 후보 중 하나 선택 → 어떤 점이 유사한지 & 병합 가이드
-        st.markdown("#### 비교 대상 선택")
-        option_labels = [f"{d['name']} (score={d.get('score'):.3f})" for d in similar]
-        sel_idx = st.selectbox("비교/병합 가이드를 볼 문서", options=list(range(len(similar))), format_func=lambda i: option_labels[i])
-        target_meta = similar[sel_idx]
-        # 선택 문서 내용 로드
-        target_detail = get_document_by_id(target_meta["id"])
-        target_text = target_detail.get("content", "")
+    #     # 3) 후보 중 하나 선택 → 어떤 점이 유사한지 & 병합 가이드
+    #     st.markdown("#### 비교 대상 선택")
+    #     option_labels = [f"{d['name']} (score={d.get('score'):.3f})" for d in similar]
+    #     sel_idx = st.selectbox("비교/병합 가이드를 볼 문서", options=list(range(len(similar))), format_func=lambda i: option_labels[i])
+    #     target_meta = similar[sel_idx]
+    #     # 선택 문서 내용 로드
+    #     target_detail = get_document_by_id(target_meta["id"])
+    #     target_text = target_detail.get("content", "")
 
-        # UI: 왜 유사한지 간단 근거 (키워드 겹침)
-        st.markdown("#### 왜 유사할까요? (간이 근거)")
-        def _top_terms(t, n=15):
-            import re, collections
-            toks = re.findall(r"[A-Za-z가-힣0-9_]{2,}", (t or "").lower())
-            stop = set(["the","and","for","with","that","this","from","are","was","were","into","have","has","as","of","in","to","a","an","or","on","by","at","be","is","it","및","그리고","으로","에서","에게","하다","된다","수","등"])
-            toks = [x for x in toks if x not in stop]
-            cnt = collections.Counter(toks)
-            return [w for w,_ in cnt.most_common(n)]
+    #     # UI: 왜 유사한지 간단 근거 (키워드 겹침)
+    #     st.markdown("#### 왜 유사할까요? (간이 근거)")
+    #     def _top_terms(t, n=15):
+    #         import re, collections
+    #         toks = re.findall(r"[A-Za-z가-힣0-9_]{2,}", (t or "").lower())
+    #         stop = set(["the","and","for","with","that","this","from","are","was","were","into","have","has","as","of","in","to","a","an","or","on","by","at","be","is","it","및","그리고","으로","에서","에게","하다","된다","수","등"])
+    #         toks = [x for x in toks if x not in stop]
+    #         cnt = collections.Counter(toks)
+    #         return [w for w,_ in cnt.most_common(n)]
 
-        if base_text and target_text:
-            base_terms = set(_top_terms(base_text, 40))
-            target_terms = set(_top_terms(target_text, 40))
-            overlap = sorted(list(base_terms & target_terms))[:20]
-            st.write({"공통 키워드(샘플)": overlap})
+    #     if base_text and target_text:
+    #         base_terms = set(_top_terms(base_text, 40))
+    #         target_terms = set(_top_terms(target_text, 40))
+    #         overlap = sorted(list(base_terms & target_terms))[:20]
+    #         st.write({"공통 키워드(샘플)": overlap})
 
-        st.markdown("#### 병합 제안 리포트")
-        if st.button("OpenAI로 병합 가이드 생성"):
-            try:
-                with st.spinner("분석 중…"):
-                    report_md = generate_merge_report(
-                        base_text or "",
-                        target_text or "",
-                        title_a=base_doc.get("name","Base"),
-                        title_b=target_meta.get("name","Candidate")
-                    )
-                st.session_state["merge_report_md"] = report_md
-                st.success("가이드 생성 완료")
-                log_activity("default", "OpenAI", "INFO", f"병합 가이드 생성 · 기준={base_doc.get('name','Base')} · 대상={target_meta.get('name')}")
-            except Exception as e:
-                st.error(f"병합 가이드 생성 실패: {e}")
+    #     st.markdown("#### 병합 제안 리포트")
+    #     if st.button("OpenAI로 병합 가이드 생성"):
+    #         try:
+    #             with st.spinner("분석 중…"):
+    #                 report_md = generate_merge_report(
+    #                     base_text or "",
+    #                     target_text or "",
+    #                     title_a=base_doc.get("name","Base"),
+    #                     title_b=target_meta.get("name","Candidate")
+    #                 )
+    #             st.session_state["merge_report_md"] = report_md
+    #             st.success("가이드 생성 완료")
+    #             log_activity("default", "OpenAI", "INFO", f"병합 가이드 생성 · 기준={base_doc.get('name','Base')} · 대상={target_meta.get('name')}")
+    #         except Exception as e:
+    #             st.error(f"병합 가이드 생성 실패: {e}")
 
-        if st.session_state.get("merge_report_md"):
-            st.markdown(st.session_state["merge_report_md"])
-            st.download_button(
-                "💾 병합 가이드 저장 (Markdown)",
-                st.session_state["merge_report_md"].encode("utf-8"),
-                file_name="merge_guidance.md"
-            )
-    else:
-        if base_text:
-            st.info("유사 문서가 충분히 나오지 않았습니다. 인덱스에 더 많은 문서를 업서트 해보세요.")
+    #     if st.session_state.get("merge_report_md"):
+    #         st.markdown(st.session_state["merge_report_md"])
+    #         st.download_button(
+    #             "💾 병합 가이드 저장 (Markdown)",
+    #             st.session_state["merge_report_md"].encode("utf-8"),
+    #             file_name="merge_guidance.md"
+    #         )
+    # else:
+    #     if base_text:
+    #         st.info("유사 문서가 충분히 나오지 않았습니다. 인덱스에 더 많은 문서를 업서트 해보세요.")
 
-    show_search_guidance(st)
-    st.markdown("#### Purview 연동 가이드")
-    show_purview_guidance()
-    label_target = st.text_input("라벨 적용 대상 문서 ID (Stub)", value=st.session_state.get("current_doc",{}).get("id",""))
-    label_name = st.text_input("라벨 이름 (Stub)", value="Confidential")
-    if st.button("라벨 적용 (Stub)"):
-        res = apply_label_stub(label_target, label_name)
-        st.json(res)
+    doc = st.session_state.get("current_doc")
+    if not doc:
+        st.warning("현재 문서가 없습니다. DocSpace에서 문서를 선택하세요.")
+        st.stop()
+
+    q = st.text_area("기준 문서(질의로 사용)", value=doc.get("text","")[:2000], height=160)
+    k = st.slider("상위 유사 문서 수", 3, 20, 8)
+    if st.button("🔎 유사 문서 찾기 (벡터 검색)"):
+        with st.spinner("검색 중..."):
+            res = vector_search(q, k=k)
+        items = res.get("value", [])
+        st.session_state["sim_items"] = items
+        st.success(f"{len(items)}건 찾음")
+
+    items = st.session_state.get("sim_items", [])
+    if items:
+        st.markdown("#### 유사 문서 후보")
+        st.table([{
+            "name": it.get("name"),
+            "originalId": it.get("originalId"),
+            "@score": it.get("@search.score"),
+            "lastModified": it.get("lastModified")
+        } for it in items])
+
+        # 가장 유사한 문서와 병합 가이드 생성
+        top = items[0] if items else None
+        if top and st.button("🧩 최상위 문서와 병합 가이드 생성"):
+            # 원문 텍스트 필요 → DocSpace/원본 저장소에서 로드
+            from files_hub import _raw_id_of_row  # 없다면 동일 로직 작성
+            # 간단 버전: search에서 텍스트는 보관 안함 → 사용자가 DocSpace에서 다시 선택해 오거나
+            # 또는 Blob/OneDrive에서 originalId를 통해 가져오도록 구현
+            st.info("상대 문서 본문을 원본 저장소에서 로드해 비교합니다.")
+            # TODO: originalId를 이용해 다운로드 후 text 추출 → generate_merge_report 호출
+            # 비교 데모(간이): 기준 문서 텍스트 vs 상위 문서 name만
+            cmp = generate_merge_report(doc.get("text","")[:3000], f"[{top.get('name')}] 요약 비교용 텍스트 없음", title_a="기준", title_b="Top1")
+            st.markdown(cmp)
+
+    # show_search_guidance(st)
+    # st.markdown("#### Purview 연동 가이드")
+    # show_purview_guidance()
+    # label_target = st.text_input("라벨 적용 대상 문서 ID (Stub)", value=st.session_state.get("current_doc",{}).get("id",""))
+    # label_name = st.text_input("라벨 이름 (Stub)", value="Confidential")
+    # if st.button("라벨 적용 (Stub)"):
+    #     res = apply_label_stub(label_target, label_name)
+    #     st.json(res)
 
 def render_ops():
     st.title("🔔 알림/운영")
-    title = st.text_input("알림 제목", "DocSpace AI – 리포트 알림")
-    body = st.text_area("알림 본문", "중복/노후/PII 감지 결과 요약을 전달합니다.")
-    if st.button("Teams 웹훅으로 전송"):
-        try:
-            res = send_teams_message(title, body)
-            st.success("전송 완료")
-        except Exception as e:
-            st.error(f"전송 실패: {e}")
-    st.markdown("---")
-    st.caption("Logic Apps 템플릿(주간 리포트)은 logicapps_samples/ 에 있습니다.")
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "주간 리포트", "보안/PII", "오래된 문서", "활동 로그 요약", "📦 종합본 저장"
+    ])
+
+    # 공통: 채널 선택
+    def pick_channels(suffix=""):
+        st.caption("발송 채널 선택")
+        c1, c2, c3 = st.columns(3)
+        ch_email = c1.checkbox(f"이메일{suffix}", value=True)
+        ch_sms = c2.checkbox(f"문자{suffix}", value=False)
+        ch_teams = c3.checkbox(f"Teams{suffix}", value=False)
+        channels = []
+        if ch_email: channels.append("email")
+        if ch_sms: channels.append("sms")
+        if ch_teams: channels.append("teams")
+        return channels
+
+    # Graph 토큰 (이메일 발송 시 필요)
+    graph_token = st.session_state.get("graph_access_token")
+
+    # 1) 주간 리포트 (보통 채널 공용)
+    with tab1:
+        title = st.text_input("제목", "DocSpace AI – 주간 리포트")
+        channels = pick_channels("(주간)")
+        if st.button("📨 전송"):
+            body = build_weekly_digest(st.session_state)
+            try:
+                # 주간 리포트는 보통 공용 채널(Teams)로, 이메일도 가능
+                # 담당자별은 아니므로 기존 send_alert 사용
+                if "teams" in channels:
+                    send_alert(title, body)
+                if "email" in channels and graph_token:
+                    # 기본 수신자에게 메일
+                    from notifier import send_email_graph
+                    to = CONFIG.get("DEFAULT_OWNER_EMAIL")
+                    send_email_graph(graph_token, to, title, body)
+                if "sms" in channels:
+                    from notifier import send_sms_acs
+                    send_sms_acs(CONFIG.get("DEFAULT_OWNER_PHONE",""), f"[주간] {title}")
+                st.success("전송 완료")
+                st.markdown(body)
+            except Exception as e:
+                st.error(f"전송 실패: {e}")
+
+    # 2) 보안/PII (문서 단위 → 담당자 전송)
+    with tab2:
+        label = st.text_input("권고 라벨", "Confidential")
+        channels = pick_channels("(PII)")
+        st.caption("현재 세션의 PII 결과를 사용하거나, 문서 originalId를 지정해 보낼 수 있습니다.")
+        oid = st.text_input("문서 originalId (선택 – 지정 시 담당자에게 전송)")
+        pii = st.session_state.get("pii_scan")  # 세션의 최근 스캔 결과
+        if st.button("🔒 PII 알림 전송"):
+            try:
+                body = build_security_alert(pii, label=label)
+                if oid.strip():
+                    res = alert_to_owner_for_document(oid.strip(),
+                        title="DocSpace AI – 보안 알림 (민감정보)",
+                        body_md=body,
+                        channels=channels,
+                        graph_access_token=graph_token
+                    )
+                    st.success(f"담당자 전송 완료: {res}")
+                else:
+                    # oid 미지정 → 공용 채널/기본 수신
+                    if "teams" in channels:
+                        send_alert("DocSpace AI – 보안 알림", body)
+                    if "email" in channels and graph_token:
+                        from notifier import send_email_graph
+                        send_email_graph(graph_token, CONFIG["DEFAULT_OWNER_EMAIL"], "DocSpace AI – 보안 알림", body)
+                    if "sms" in channels:
+                        from notifier import send_sms_acs
+                        send_sms_acs(CONFIG["DEFAULT_OWNER_PHONE"], "[PII] 민감정보 감지 알림")
+                    st.success("전송 완료")
+                    st.markdown(body)
+            except Exception as e:
+                st.error(f"전송 실패: {e}")
+
+    # 3) 오래된 문서 (일괄 → 각 담당자)
+    with tab3:
+        limit = st.slider("상위 표시/발송 개수", 5, 100, 20)
+        channels = pick_channels("(오래된)")
+        if st.button("⏳ 오래된 문서 – 담당자별 일괄 전송"):
+            try:
+                res = bulk_alert_stale_docs_to_owners(limit=limit, channels=channels, graph_access_token=graph_token)
+                st.success("전송 완료")
+                st.json(res)
+            except Exception as e:
+                st.error(f"전송 실패: {e}")
+        if st.button("⏳ 오래된 문서 – 공용 알림"):
+            try:
+                body = build_stale_docs_alert(limit=limit)
+                if "teams" in channels:
+                    send_alert("DocSpace AI – 오래된 문서 리포트", body)
+                if "email" in channels and graph_token:
+                    from notifier import send_email_graph
+                    send_email_graph(graph_token, CONFIG["DEFAULT_OWNER_EMAIL"], "DocSpace AI – 오래된 문서 리포트", body)
+                if "sms" in channels:
+                    from notifier import send_sms_acs
+                    send_sms_acs(CONFIG["DEFAULT_OWNER_PHONE"], "[Stale] 오래된 문서 리포트")
+                st.success("전송 완료")
+                st.markdown(body)
+            except Exception as e:
+                st.error(f"전송 실패: {e}")
+
+    # 4) 활동 로그 요약 (공용/기본 수신)
+    with tab4:
+        top = st.slider("최근 N개", 5, 100, 20)
+        channels = pick_channels("(로그)")
+        user_id = st.text_input("User/Partition 키", st.session_state.get("graph_user_mail","default"))
+        if st.button("🗂 활동 로그 요약 전송"):
+            try:
+                body = quick_activity_digest(user_id=user_id, top=top)
+                if "teams" in channels:
+                    send_alert("DocSpace AI – 활동 로그 요약", body)
+                if "email" in channels and graph_token:
+                    from notifier import send_email_graph
+                    send_email_graph(graph_token, CONFIG["DEFAULT_OWNER_EMAIL"], "DocSpace AI – 활동 로그 요약", body)
+                if "sms" in channels:
+                    from notifier import send_sms_acs
+                    send_sms_acs(CONFIG["DEFAULT_OWNER_PHONE"], "[Logs] 최근 활동 요약")
+                st.success("전송 완료")
+                st.markdown(body)
+            except Exception as e:
+                st.error(f"전송 실패: {e}")
+    with tab5:
+        st.subheader("알림 종합본 생성 & 저장 (Blob)")
+        colA, colB = st.columns(2)
+        with colA:
+            inc_weekly = st.checkbox("주간 요약 포함", True)
+            inc_sec = st.checkbox("보안/PII 포함", True)
+            inc_stale = st.checkbox("오래된 문서 포함", True)
+            inc_act = st.checkbox("활동 로그 요약 포함", True)
+        with colB:
+            stale_limit = st.number_input("오래된 문서 상한", 1, 200, 20)
+            activity_top = st.number_input("활동 로그 상한", 1, 200, 20)
+            title = st.text_input("제목(선택)", "")
+
+        if st.button("🧾 종합본 미리보기 생성"):
+            md = build_consolidated_markdown(
+                include_weekly=inc_weekly,
+                include_security=inc_sec,
+                include_stale=inc_stale,
+                include_activity=inc_act,
+                stale_limit=stale_limit,
+                activity_top=activity_top,
+                custom_title=title or None,
+            )
+            st.session_state["_consolidated_preview"] = md
+            st.success("생성 완료 · 아래 미리보기 확인/저장하세요.")
+            st.code(md[:4000])  # 너무 길면 앞부분만 미리보기
+
+        if st.session_state.get("_consolidated_preview"):
+            default_name = f"reports/consolidated-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md"
+            save_name = st.text_input("저장 파일명", value=default_name)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.download_button("⬇️ 로컬로 저장", st.session_state["_consolidated_preview"].encode("utf-8"),
+                                   file_name=save_name.split("/")[-1], mime="text/markdown")
+            with c2:
+                if st.button("☁️ Blob에 저장"):
+                    try:
+                        blob_name = save_consolidated_report_to_blob(st.session_state["_consolidated_preview"], save_name)
+                        st.success(f"Blob 저장 완료: `{blob_name}`")
+                    except Exception as e:
+                        st.error(f"Blob 저장 실패: {e}")
+                        
 
 if st.session_state.get("_nav_to") in PAGES:
     page = st.session_state.pop("_nav_to")
 
-if page == "📁 파일 허브":
+if page == "📁 DocSpace":
     render_files_hub()
 elif page == "📊 대시보드":
     render_dashboard()
-elif page == "🔐 로그인 & 저장소":
-    render_storage()
+# elif page == "🔐 로그인 & 저장소":
+#     render_storage()
 elif page == "🧾 문서 감사":
     render_audit()
 elif page == "🗂️ 지식 정리/보안":

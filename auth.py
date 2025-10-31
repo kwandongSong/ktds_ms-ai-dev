@@ -6,7 +6,7 @@ def ensure_login() -> bool:
     tenant_id = CONFIG.get("TENANT_ID", "common").strip() or "common"
     authority = f"https://login.microsoftonline.com/{tenant_id}"
     client_id = CONFIG["CLIENT_ID"]
-    scopes = CONFIG.get("SCOPES", ["User.Read", "Files.Read"])
+    scopes = CONFIG.get("SCOPES", ["User.Read", "Files.Read","Mail.Send"])
 
     app = msal.PublicClientApplication(client_id=client_id, authority=authority)
 

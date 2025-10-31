@@ -109,3 +109,20 @@ def refine_document_with_azure_openai(original_text: str,
     r = requests.post(url, headers=_aoai_headers(), json=body, timeout=120)
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"]
+
+
+def get_embeddings(texts):
+    """
+    texts: list[str] -> list[float list]
+    Azure OpenAI /embeddings 호출
+    """
+    endpoint = CONFIG["AZURE_OPENAI_ENDPOINT"].rstrip("/")
+    dep = CONFIG["AZURE_OPENAI_EMBED_DEPLOYMENT"]
+    key = CONFIG["AZURE_OPENAI_API_KEY"]
+    url = f"{endpoint}/openai/deployments/{dep}/embeddings?api-version=2024-02-15-preview"
+    headers = {"api-key": key, "Content-Type": "application/json"}
+    payload = {"input": texts}
+    r = requests.post(url, headers=headers, json=payload, timeout=60)
+    r.raise_for_status()
+    data = r.json()
+    return [d["embedding"] for d in data["data"]]

@@ -11,7 +11,10 @@ from storage_blob import list_blobs_detailed, download_blob
 from graph import list_onedrive_root, list_onedrive_children, download_onedrive_file
 from docintel import extract_text_naive, extract_text_docintel
 from storage_logs import log_activity
-from search import ensure_search_ready, upsert_documents, make_safe_key
+from search import ensure_search_ready, make_safe_key, upsert_documents_with_embeddings
+from pii import scan_pii
+from purview import apply_label_stub
+from owners_registry import set_owner, get_owner
 
 # ----------------------------
 # 내부 유틸
@@ -109,7 +112,14 @@ def _bulk_index(docs_meta: List[Dict], source: str, use_docintel: bool, batch: i
             })
 
             if len(payload_batch) >= batch:
-                upsert_documents(payload_batch)
+                pii = scan_pii(text)
+                if pii and sum(len(v) for v in pii.values()) > 0:
+                    # 임시: PII 발견 시 Confidential 라벨 스텁
+                    try:
+                        apply_label_stub(original_id, "Confidential")
+                    except Exception:
+                        pass
+                upsert_documents_with_embeddings(payload_batch)
                 ok_cnt += len(payload_batch)
                 payload_batch.clear()
         except Exception as e:
@@ -122,7 +132,14 @@ def _bulk_index(docs_meta: List[Dict], source: str, use_docintel: bool, batch: i
             )
 
     if payload_batch:
-        upsert_documents(payload_batch)
+        pii = scan_pii(text)
+        if pii and sum(len(v) for v in pii.values()) > 0:
+            # 임시: PII 발견 시 Confidential 라벨 스텁
+            try:
+                apply_label_stub(original_id, "Confidential")
+            except Exception:
+                pass
+        upsert_documents_with_embeddings(payload_batch)
         ok_cnt += len(payload_batch)
 
     log_activity(
@@ -154,6 +171,18 @@ def _row_actions(row: Dict, use_docintel: bool, page_tag: str):
     index_id = _search_id_of_row(row)
     # st.text_input("originalId", value=original_id, key=f"ori_{page_tag}_{index_id}", disabled=True)
     # st.text_input("index id (search)", value=index_id, key=f"sid_{page_tag}_{index_id}", disabled=True)
+    
+    cur = get_owner(original_id)
+    email_in = st.text_input("담당자 이메일", value=cur.get("email",""), key=f"ownermail_{page_tag}_{index_id}")
+    phone_in = st.text_input("담당자 휴대폰", value=cur.get("phone",""), key=f"ownerphone_{page_tag}_{index_id}")
+    if st.button("💾 담당자 저장", key=f"owner_save_{page_tag}_{index_id}"):
+        try:
+            saved = set_owner(original_id, email=email_in, phone=phone_in)
+            st.success("담당자 저장 완료")
+            st.caption(f"검증: RowKey={saved['_RowKey']} · Table={saved['_Table']}")
+            st.caption(f"OriginalId={saved['OriginalId']} / Email={saved['Email']} / Phone={saved['Phone']}")
+        except Exception as e:
+            st.error(f"저장 실패: {e}")        
 
     # 미리보기
     if st.button("👁 미리보기", key=f"pv_{page_tag}_{index_id}"):
@@ -198,7 +227,7 @@ def _row_actions(row: Dict, use_docintel: bool, page_tag: str):
                 "lastModified": row.get("last_modified") or datetime.utcnow().isoformat(),
                 "views": 0
             }]
-            upsert_documents(payload)
+            upsert_documents_with_embeddings(payload)
             st.success("업서트 완료")
             log_activity(st.session_state.get("graph_user_mail","default"), "Search", "INFO", f"upsert: {name}")
         except Exception as e:
@@ -216,7 +245,7 @@ def render_files_hub():
         st.error(f"Search 초기화 실패: {e}")
         return
 
-    st.title("📁 파일 허브")
+    st.title("📁 DocSpace")
     st.caption("파일 목록을 자동 표시하고, 각 행의 햄버거(⋮) 메뉴에서 바로 작업을 실행합니다.")
 
     source_default = CONFIG.get("STORAGE_MODE", "onedrive")
@@ -225,7 +254,7 @@ def render_files_hub():
     use_docintel = st.toggle("Azure Document Intelligence OCR 사용(가능시)", value=False)
 
     # 검색/필터
-    q = st.text_input("이름 필터", value="")
+    # q = st.text_input("이름 필터", value="")
     page_size = st.selectbox("페이지 크기", [10, 20, 50, 100], index=1)
     page = st.session_state.get("_files_page", 1)
 
@@ -240,9 +269,9 @@ def render_files_hub():
     rows = [r for r in rows if not r.get("is_folder")]
 
     # 필터링
-    if q:
-        q_low = q.lower()
-        rows = [r for r in rows if q_low in (r.get("name","").lower())]
+    # if q:
+    #     q_low = q.lower()
+    #     rows = [r for r in rows if q_low in (r.get("name","").lower())]
 
     # 문서형만 보기
     if st.checkbox("문서 확장자만 보기 (.pdf/.txt/.md/.docx/.pptx/.xlsx)", value=True):

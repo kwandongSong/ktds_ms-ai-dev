@@ -57,7 +57,7 @@ def render_login_page(default_next: str = "📊 대시보드"):
 
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("➡️ 계속하기 (대시보드로 이동)"):
+        if st.button("➡️ 계속하기"):
             st.session_state["_nav_to"] = default_next
             st.rerun()
     with c2:
