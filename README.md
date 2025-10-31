@@ -119,16 +119,22 @@ ktds_ms-ai-dev/
 
 ## 🔄 동작 흐름
 
-1️⃣ **문서 업로드 → Blob Storage 저장**  
-→ 텍스트 추출 (OCR/DocIntel)  
-→ OpenAI Embedding 수행  
-→ Search 인덱스 업서트 (`upsert_documents_with_embeddings()`)
+1. **문서 업로드** 
+→ Blob Storage 저장  
+→ 텍스트 추출 (OCR/DocIntel), Embedding 수행, Search 인덱스 업서트 (`upsert_documents_with_embeddings()`)
+→ 담당자 지정
 
-2️⃣ **유사 문서 탐색 → GPT-4o-mini 분석으로 병합 가이드 제시**  
+3. **유사 문서 탐색** 
+→ vector 유사도 검색 및 AI 분석으로 병합 가이드 제시  
 
-3️⃣ **문서 감사/보안탐지 → 정기 Function이 180일 이상 미수정 문서 자동 탐지**  
+4. **문서 감사/보안탐지**
+→ PII(주민번호, Mail, 카드번호 등) 탐지  
 
-4️⃣ **알림 및 보고 → Logic Apps / Graph API로 담당자별 메일/Teams 자동 발송**
+5. **알림 및 보고**
+→ 별도 종합보고서 작성 및 저장
+
+6. **대시보드 모니터링**
+→ 활동 로그, 특이사항 표기
 
 ---
 
