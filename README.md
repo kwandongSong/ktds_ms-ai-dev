@@ -36,7 +36,7 @@ Works Space,Drive 시스템의 m365 전환 대비 m365 라인업 제품군들과
 | **Storage** | Blob Storage | 문서 저장, 종합 리포트 저장 | `docspace`, `docspace-reports` |
 |  | Table Storage | 담당자 / 로그 관리 | `DocspaceOwners`, `DocspaceActivity` |
 | ~~**Functions**~~ | Python Timer Trigger | 정기 보고서 생성 (5분마다) | Storage Key 인증 |
-| **Logic Apps / Graph API** | Teams / Outlook 알림 | 담당자별 자동 발송 | Mail.Send 권한 필요 |
+| ~~**Logic Apps / Graph API**~~ | Teams / Outlook 알림 | 담당자별 자동 발송 | Mail.Send 권한 필요 |
 
 ---
 
@@ -53,11 +53,31 @@ Works Space,Drive 시스템의 m365 전환 대비 m365 라인업 제품군들과
 | ~~**자동 알림 전송**~~ | Logic Apps / Graph API | 담당자에게 메일/Teams 알림 자동 발송 |
 | **종합 보고서 저장** | Blob Reports | 모든 경고/이상 문서 종합 JSON 저장 |
 
-링크 : https://kwand-wepapp-1030.azurewebsites.net/
-계정 : ktds7_14@modulabsbiz.onmicrosoft.com
-
 ---
 
+
+## 🔄 동작 흐름
+
+1. **문서 업로드** 
+→ Blob Storage 저장  
+→ 텍스트 추출 (OCR/DocIntel), Embedding 수행, Search 인덱스 업서트 (`upsert_documents_with_embeddings()`)
+→ 담당자 지정
+
+3. **유사 문서 탐색** 
+→ vector 유사도 검색 및 AI 분석으로 병합 가이드 제시  
+
+4. **문서 감사/보안탐지**
+→ PII(주민번호, Mail, 카드번호 등) 탐지  
+
+5. **알림 및 보고**
+→ 별도 종합보고서 작성 및 저장
+
+6. **대시보드 모니터링**
+→ 활동 로그, 특이사항 표기
+
+링크 : https://kwand-wepapp-1030.azurewebsites.net/
+계정 : ktds7_14@modulabsbiz.onmicrosoft.com
+---
 
 
 ## 🧰 기술 스택
@@ -119,26 +139,6 @@ ktds_ms-ai-dev/
 
 ---
 
-## 🔄 동작 흐름
-
-1. **문서 업로드** 
-→ Blob Storage 저장  
-→ 텍스트 추출 (OCR/DocIntel), Embedding 수행, Search 인덱스 업서트 (`upsert_documents_with_embeddings()`)
-→ 담당자 지정
-
-3. **유사 문서 탐색** 
-→ vector 유사도 검색 및 AI 분석으로 병합 가이드 제시  
-
-4. **문서 감사/보안탐지**
-→ PII(주민번호, Mail, 카드번호 등) 탐지  
-
-5. **알림 및 보고**
-→ 별도 종합보고서 작성 및 저장
-
-6. **대시보드 모니터링**
-→ 활동 로그, 특이사항 표기
-
----
 
 ## 🕒 정기 스케줄 (Azure Functions)
 
