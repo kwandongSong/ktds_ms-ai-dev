@@ -31,6 +31,7 @@ from ops_alerts import (
 from owners_registry import ensure_owners_table
 # app.py – render_ops() 내 탭 추가/핸들러
 from reports import build_consolidated_markdown, save_consolidated_report_to_blob
+from merge_rag import generate_merged_markdown, save_merged, merged_filename
 
 try:
     ensure_owners_table()
@@ -71,7 +72,7 @@ PAGES = [
     "📊 대시보드",
     # "🔐 Space",
     "🧾 문서 감사",
-    "🗂️ 지식 정리/보안",
+    "🗂️ 유사 검색 / 병합 가이드",
     "🔔 알림/운영",
 ]
 
@@ -458,7 +459,7 @@ def render_audit():
 
 def render_curation():
     
-    # st.title("🗂️ 지식 정리/보안")
+    # st.title("🗂️ 유사 검색 / 병합 가이드")
     # st.markdown("#### 1) 인덱스 생성")
     # if st.button("인덱스 생성/확인"):
     #     try:
@@ -660,6 +661,50 @@ def render_curation():
     #     res = apply_label_stub(label_target, label_name)
     #     st.json(res)
 
+    st.markdown("---")
+    st.subheader("🧩 기반 병합 문서 생성")
+
+    current = st.session_state.get("current_doc")
+    base_text = current.get("text", "") if current else ""
+
+    rag_col1, rag_col2 = st.columns([3,2])
+    with rag_col1:
+        doc_title = st.text_input("병합 문서 제목", value=(current.get("name") if current else "Merged Document"))
+        k = st.slider("참고 문서 개수 (Top-k)", 3, 10, 5)
+        use_vector = st.checkbox("벡터 검색 사용", value=True)
+
+    with rag_col2:
+        target = st.radio("저장 위치", ["local", "blob", "onedrive"], horizontal=True)
+        fname = st.text_input("저장 파일명", value=merged_filename(doc_title))
+
+    if st.button("🚀 병합 문서 생성"):
+        if not base_text.strip():
+            st.warning("기준 문서(현재 문서)가 없습니다. 파일 허브에서 문서를 선택/불러오세요.")
+        else:
+            try:
+                with st.spinner("유사 문서 수집 및 병합 생성 중…"):
+                    merged_md, used = generate_merged_markdown(doc_title, base_text, k=k, use_vector=use_vector)
+
+                st.success("병합 문서 생성 완료")
+                st.code(merged_md[:1200])  # 미리보기
+
+                res = save_merged(merged_md, fname, target=target)
+                if res.get("ok"):
+                    if target == "local":
+                        st.download_button("💾 병합본 다운로드(.md)", data=res["data"], file_name=fname, mime="text/markdown")
+                    else:
+                        st.info(f"저장 완료 → {res['where']}: {res.get('path','')}")
+                else:
+                    st.error(f"저장 실패: {res.get('error')}")
+
+                # 참고로 사용된 컨텍스트 리스트도 표시
+                with st.expander("📚 사용한 참고 문서(컨텍스트)"):
+                    for i, c in enumerate(used, 1):
+                        st.write(f"{i}. {c.get('name')} ({c.get('id')})")
+
+            except Exception as e:
+                st.error(f"병합 생성/저장 실패: {e}")
+
 def render_ops():
     st.title("🔔 알림/운영")
 
@@ -841,7 +886,7 @@ elif page == "📊 대시보드":
 #     render_storage()
 elif page == "🧾 문서 감사":
     render_audit()
-elif page == "🗂️ 지식 정리/보안":
+elif page == "🗂️ 유사 검색 / 병합 가이드":
     render_curation()
 elif page == "🔔 알림/운영":
     render_ops()

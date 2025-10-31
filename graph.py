@@ -45,16 +45,33 @@ def download_onedrive_file(item_id: str) -> bytes:
     return r.content
 
 # graph.py (맨 아래에 추가)
-def upload_onedrive_file(path_name: str, content: bytes, conflict_behavior: str = "replace", mime: str = "text/markdown"):
+# def upload_onedrive_file(path_name: str, content: bytes, conflict_behavior: str = "replace", mime: str = "text/markdown"):
+#     """
+#     path_name 예: 'DocSpace/refined/mydoc-refined.md'
+#     conflict_behavior: 'replace' | 'rename' | 'fail'
+#     """
+#     headers = _headers()
+#     headers["Content-Type"] = mime
+#     url = (f"{GRAPH_BASE}/me/drive/root:/{path_name}:/content"
+#            f"?@microsoft.graph.conflictBehavior={conflict_behavior}")
+#     r = requests.put(url, headers=headers, data=content, timeout=90)
+#     if r.status_code >= 400:
+#         _raise_with_detail(r, f"PUT /me/drive/root:/{path_name}:/content")
+#     return r.json()  # 업로드된 item 메타데이터
+
+
+def upload_onedrive_file(path: str, data: bytes, mime: str = "text/markdown"):
     """
-    path_name 예: 'DocSpace/refined/mydoc-refined.md'
-    conflict_behavior: 'replace' | 'rename' | 'fail'
+    /me/drive/root:/path:/content 로 업로드 (없으면 생성/덮어쓰기)
+    path 예: DocSpaceAI/Merged/2025-10-31-merged.md
     """
-    headers = _headers()
-    headers["Content-Type"] = mime
-    url = (f"{GRAPH_BASE}/me/drive/root:/{path_name}:/content"
-           f"?@microsoft.graph.conflictBehavior={conflict_behavior}")
-    r = requests.put(url, headers=headers, data=content, timeout=90)
-    if r.status_code >= 400:
-        _raise_with_detail(r, f"PUT /me/drive/root:/{path_name}:/content")
-    return r.json()  # 업로드된 item 메타데이터
+    url = f"{GRAPH_BASE}/me/drive/root:/{path}:/content"
+    r = requests.put(
+        url,
+        headers={"Authorization": f"Bearer {_token()}", "Content-Type": mime},
+        data=data,
+        timeout=60
+    )
+    if r.status_code not in (200, 201):
+        raise requests.HTTPError(f"OneDrive 업로드 실패 {r.status_code}: {r.text}", response=r)
+    return r.json()

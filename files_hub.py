@@ -209,7 +209,7 @@ def _row_actions(row: Dict, use_docintel: bool, page_tag: str):
             _, text = _download_and_extract()
             st.session_state["current_doc"] = {"name": name, "id": rid, "text": text}
             log_activity(st.session_state.get("graph_user_mail","default"), "FilesHub", "INFO", f"to Curation: {name}")
-            go("🗂️ 지식 정리/보안")  # ← 여기!
+            go("🗂️ 유사 검색 / 병합 가이드")  # ← 여기!
         except Exception as e:
             st.error(f"가이드 이동 실패: {e}")
 
@@ -246,17 +246,17 @@ def render_files_hub():
         return
 
     st.title("📁 DocSpace")
-    st.caption("파일 목록을 자동 표시하고, 각 행의 햄버거(⋮) 메뉴에서 바로 작업을 실행합니다.")
+    st.caption("파일 목록을 표시하고, 각 행의 햄버거(⋮) 메뉴에서 바로 작업을 실행합니다.")
 
     source_default = CONFIG.get("STORAGE_MODE", "onedrive")
     source = st.radio("데이터 소스", ["blob", "onedrive"], index=0 if source_default == "blob" else 1, horizontal=True)
 
     use_docintel = st.toggle("Azure Document Intelligence OCR 사용(가능시)", value=False)
 
-    # 검색/필터
     # q = st.text_input("이름 필터", value="")
-    page_size = st.selectbox("페이지 크기", [10, 20, 50, 100], index=1)
-    page = st.session_state.get("_files_page", 1)
+    # if q:
+    #     q_low = q.lower()
+    #     rows = [r for r in rows if q_low in (r.get("name","").lower())]
 
     # 2) 목록 자동 로딩
     with st.spinner("파일 목록 불러오는 중…"):
@@ -268,17 +268,11 @@ def render_files_hub():
     # 폴더 제외(표에서 노출 막기)
     rows = [r for r in rows if not r.get("is_folder")]
 
-    # 필터링
-    # if q:
-    #     q_low = q.lower()
-    #     rows = [r for r in rows if q_low in (r.get("name","").lower())]
-
     # 문서형만 보기
     if st.checkbox("문서 확장자만 보기 (.pdf/.txt/.md/.docx/.pptx/.xlsx)", value=True):
         rows = [r for r in rows if _is_doc(r.get("name",""))]
 
     # 3) 최초 일괄 인덱싱
-    st.markdown("#### 📌 최초 1회 인덱싱/업서트")
     if not st.session_state.get("_indexed_once"):
         st.info("아직 전체 파일 인덱싱을 수행하지 않았습니다. 아래 버튼으로 현재 목록(필터 결과)을 일괄 업서트할 수 있습니다.")
     c1, c2 = st.columns([1,3])
@@ -288,8 +282,10 @@ def render_files_hub():
             ok, fail = _bulk_index(metas, source=source, use_docintel=use_docintel)
             st.session_state["_indexed_once"] = True
             st.success(f"일괄 인덱싱 완료 · 성공 {ok} · 실패 {fail}")
-    with c2:
-        st.caption("필터 적용된 현재 목록만 업서트합니다.")
+
+    # 검색/필터
+    page_size = st.selectbox("페이지 크기", [10, 20, 50, 100], index=1)
+    page = st.session_state.get("_files_page", 1)
 
     # 페이지네이션
     page_total = 1
@@ -298,6 +294,40 @@ def render_files_hub():
         subset, page_total = _paginate(rows, page, page_size)
     else:
         subset = []
+
+    # ====== 테이블(가상) 렌더: 햄버거 메뉴 포함 ======
+    if not subset:
+        st.warning("표시할 항목이 없습니다.")
+        return
+
+    # 헤더
+    st.markdown("""
+    <div style="display:grid;grid-template-columns: 1fr 120px 200px 160px 90px;gap:8px;font-weight:600;">
+      <div>이름</div><div>크기</div><div>수정시각</div><div style="text-align:right">액션</div>
+    </div>
+    <hr style="opacity:.2;margin:6px 0 12px 0"/>
+    """, unsafe_allow_html=True)
+
+    # 행들
+    for r in subset:
+        name = r.get("name") or "-"
+        size = r.get("size") or "-"
+        lmod = r.get("last_modified") or "-"
+        page_tag = f"{page}"
+
+        cols = st.columns([6, 2, 3, 1], gap="small")
+        with cols[0]:
+            st.write(name)
+        with cols[1]:
+            st.caption(f"{size/1024/1024:.1f} MB" if isinstance(size, (int, float)) else "-")
+        with cols[2]:
+            st.caption(lmod)
+        # 햄버거 팝오버
+        with cols[3]:
+            with st.popover("⋮", use_container_width=True):
+                st.markdown(f"**{name}**")
+                _row_actions(r, use_docintel=use_docintel, page_tag=page_tag)
+
 
     # 페이지 컨트롤
     pc1, pc2, pc3 = st.columns([1,2,1])
@@ -314,39 +344,3 @@ def render_files_hub():
                 st.session_state["_files_page"] = page + 1
                 st.rerun()
 
-    # ====== 테이블(가상) 렌더: 햄버거 메뉴 포함 ======
-    if not subset:
-        st.warning("표시할 항목이 없습니다.")
-        return
-
-    # 헤더
-    st.markdown("""
-    <div style="display:grid;grid-template-columns: 1fr 120px 200px 160px 90px;gap:8px;font-weight:600;">
-      <div>이름</div><div>크기</div><div>유형</div><div>수정시각</div><div style="text-align:right">액션</div>
-    </div>
-    <hr style="opacity:.2;margin:6px 0 12px 0"/>
-    """, unsafe_allow_html=True)
-
-    # 행들
-    for r in subset:
-        name = r.get("name") or "-"
-        size = r.get("size") or "-"
-        ctype = r.get("content_type") or "-"
-        lmod = r.get("last_modified") or "-"
-        page_tag = f"{page}"
-
-        cols = st.columns([6, 2, 3, 3, 1], gap="small")
-        with cols[0]:
-            st.write(name)
-        with cols[1]:
-            st.caption(size)
-        with cols[2]:
-            st.caption(ctype)
-        with cols[3]:
-            st.caption(lmod)
-
-        # 햄버거 팝오버
-        with cols[4]:
-            with st.popover("⋮", use_container_width=True):
-                st.markdown(f"**{name}**")
-                _row_actions(r, use_docintel=use_docintel, page_tag=page_tag)

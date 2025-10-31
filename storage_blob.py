@@ -30,7 +30,7 @@ def upload_blob(blob_name, data: bytes, overwrite: bool = True,
     key     = CONFIG["AZURE_STORAGE_KEY"]
     svc = BlobServiceClient(account_url=f"https://{account}.blob.core.windows.net", credential=key)
 
-    cont_name = container or CONFIG.get("REPORTS_CONTAINER") or "docspace"
+    cont_name = container or CONFIG.get("AZURE_STORAGE_CONTAINER") or "docspace"
     container_client = svc.get_container_client(cont_name)
     try:
         container_client.create_container()

@@ -2,7 +2,7 @@
 # compare.py – Similar-document comparator & merge suggestion via Azure OpenAI
 from openai_client import azure_openai_chat
 
-COMPARE_SYSTEM_PROMPT = """You are an expert documentation reviewer for Korean enterprise teams.
+COMPARE_SYSTEM_PROMPT = """결과물은 한국말로 만들어야돼. You are an expert documentation reviewer for Korean enterprise teams.
 Given two documents A and B (in Korean), produce a concise Markdown report:
 1) Summary of each document (2-3 bullets each).
 2) Overlap & differences (bulleted).
